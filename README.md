@@ -8,6 +8,8 @@
 - Tailwind CSS, Radix UI 기반 UI (shadcn 스타일)
 - Zustand (상태 관리 + localStorage persist)
 - SheetJS (xlsx) 엑셀 불러오기/내보내기
+- Node v24.13.1
+- npm 11.8.0
 
 ## 실행 방법
 
