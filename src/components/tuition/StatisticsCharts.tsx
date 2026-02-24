@@ -74,10 +74,11 @@ export function StatisticsCharts({ snapshot }: StatisticsChartsProps) {
             구분별 매출 비중 (초/중/고)
           </CardTitle>
         </CardHeader>
-        <CardContent className="h-[280px]">
+        <CardContent className="h-[280px] w-full">
           {pieData.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
+            <div className="h-full w-full min-h-[200px] min-w-[300px]">
+              <ResponsiveContainer width="100%" height={280} minWidth={300} minHeight={200}>
+                <PieChart>
                 <Pie
                   data={pieData}
                   cx="50%"
@@ -96,7 +97,8 @@ export function StatisticsCharts({ snapshot }: StatisticsChartsProps) {
                 <Legend />
                 <Tooltip formatter={(v) => formatWon(Number(v))} />
               </PieChart>
-            </ResponsiveContainer>
+              </ResponsiveContainer>
+            </div>
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
               데이터가 없습니다.
@@ -111,9 +113,10 @@ export function StatisticsCharts({ snapshot }: StatisticsChartsProps) {
             수납 완료 vs 미납 금액
           </CardTitle>
         </CardHeader>
-        <CardContent className="h-[280px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
+        <CardContent className="h-[280px] w-full">
+          <div className="h-full w-full min-h-[200px] min-w-[300px]">
+            <ResponsiveContainer width="100%" height={280} minWidth={300} minHeight={200}>
+              <BarChart
               layout="vertical"
               data={stackedBarData}
               margin={{ top: 16, right: 24, left: 8, bottom: 16 }}
@@ -122,13 +125,14 @@ export function StatisticsCharts({ snapshot }: StatisticsChartsProps) {
               <YAxis type="category" dataKey="name" width={0} tick={false} axisLine={false} tickLine={false} />
               <Tooltip formatter={(v) => formatWon(Number(v))} />
               <Bar dataKey="수납완료" name="수납 완료" stackId="a" fill="#22c55e" radius={[0, 4, 4, 0]} minPointSize={8}>
-                <LabelList dataKey="수납완료" position="center" formatter={(v: number) => (v > 0 ? formatWon(v) : '')} fill="#000" stroke="none" style={{ fontWeight: 600, fontSize: 14 }} />
+                <LabelList dataKey="수납완료" position="center" formatter={(v: unknown) => (Number(v) > 0 ? formatWon(Number(v)) : '')} fill="#000" stroke="none" style={{ fontWeight: 600, fontSize: 14 }} />
               </Bar>
               <Bar dataKey="미납" name="미납" stackId="a" fill="#ef4444" radius={[0, 4, 4, 0]} minPointSize={8}>
-                <LabelList dataKey="미납" position="center" formatter={(v: number) => (v > 0 ? formatWon(v) : '')} fill="#000" stroke="none" style={{ fontWeight: 600, fontSize: 14 }} />
+                <LabelList dataKey="미납" position="center" formatter={(v: unknown) => (Number(v) > 0 ? formatWon(Number(v)) : '')} fill="#000" stroke="none" style={{ fontWeight: 600, fontSize: 14 }} />
               </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </CardContent>
       </Card>
     </div>
