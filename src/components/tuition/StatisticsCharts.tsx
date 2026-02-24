@@ -14,6 +14,7 @@ import {
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useTuitionStore, useUnpaidSummary } from '@/store/useTuitionStore'
+import type { KpiSnapshot } from '@/lib/kpiShare'
 
 const GRADE_LABELS: Record<string, string> = {
   elementary: '초등',
@@ -27,11 +28,16 @@ function formatWon(n: number): string {
   return `${n.toLocaleString('ko-KR')}원`
 }
 
-export function StatisticsCharts() {
+export interface StatisticsChartsProps {
+  /** 공유 링크로 들어온 경우 전달 시 스냅샷 기준으로 차트 표시 */
+  snapshot?: KpiSnapshot | null
+}
+
+export function StatisticsCharts({ snapshot }: StatisticsChartsProps) {
   const students = useTuitionStore((s) => s.students)
   const unpaidSummary = useUnpaidSummary()
 
-  const pieData = useMemo(() => {
+  const pieDataFromStore = useMemo(() => {
     const acc: Record<string, number> = { elementary: 0, middle: 0, high: 0 }
     for (const s of students) {
       const amount = s.finalAmount ?? 0
@@ -48,8 +54,12 @@ export function StatisticsCharts() {
     () => students.reduce((sum, s) => sum + (s.finalAmount ?? 0), 0),
     [students]
   )
-  const unpaidAmount = unpaidSummary.totalAmount
-  const paidAmount = Math.max(0, totalRevenue - unpaidAmount)
+  const liveUnpaid = unpaidSummary.totalAmount
+  const livePaid = Math.max(0, totalRevenue - liveUnpaid)
+
+  const pieData = snapshot ? (snapshot.pieData ?? []) : pieDataFromStore
+  const unpaidAmount = snapshot ? snapshot.totalUnpaidAmount : liveUnpaid
+  const paidAmount = snapshot ? Math.max(0, snapshot.expectedRevenue - snapshot.totalUnpaidAmount) : livePaid
 
   const stackedBarData = useMemo(
     () => [{ name: '전체', 수납완료: paidAmount, 미납: unpaidAmount }],
@@ -106,16 +116,16 @@ export function StatisticsCharts() {
             <BarChart
               layout="vertical"
               data={stackedBarData}
-              margin={{ top: 16, right: 24, left: 60, bottom: 16 }}
+              margin={{ top: 16, right: 24, left: 8, bottom: 16 }}
             >
               <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 10000).toFixed(0)}만`} />
-              <YAxis type="category" dataKey="name" width={50} tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+              <YAxis type="category" dataKey="name" width={0} tick={false} axisLine={false} tickLine={false} />
               <Tooltip formatter={(v) => formatWon(Number(v))} />
               <Bar dataKey="수납완료" name="수납 완료" stackId="a" fill="#22c55e" radius={[0, 4, 4, 0]} minPointSize={8}>
-                <LabelList dataKey="수납완료" position="center" formatter={(v: number) => (v > 0 ? formatWon(v) : '')} />
+                <LabelList dataKey="수납완료" position="center" formatter={(v: number) => (v > 0 ? formatWon(v) : '')} fill="#000" stroke="none" style={{ fontWeight: 600, fontSize: 14 }} />
               </Bar>
               <Bar dataKey="미납" name="미납" stackId="a" fill="#ef4444" radius={[0, 4, 4, 0]} minPointSize={8}>
-                <LabelList dataKey="미납" position="center" formatter={(v: number) => (v > 0 ? formatWon(v) : '')} />
+                <LabelList dataKey="미납" position="center" formatter={(v: number) => (v > 0 ? formatWon(v) : '')} fill="#000" stroke="none" style={{ fontWeight: 600, fontSize: 14 }} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
