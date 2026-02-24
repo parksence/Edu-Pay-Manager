@@ -22,6 +22,14 @@ export interface StudentRow {
   shuttle: ShuttleType;
   materialsFee: number;
   absenceDeduction: number;
+  /** 납부 완료 여부 (기본값: true = 납부한 걸로). 기존 저장 데이터 호환용 optional */
+  isPaid?: boolean;
+  /** 납부한 금액 (원). 미입력 시 납부 완료면 전액 납부로 간주. 기존 저장 데이터 호환용 optional */
+  paidAmount?: number;
+  /** 비고 (메모). 기존 저장 데이터 호환용 optional */
+  notes?: string;
+  /** 연락처 (전화번호). 미납자 전화 걸기 등에 사용. optional */
+  phone?: string;
   /** 계산 필드: 기본 수업료 */
   baseTuition?: number;
   /** 계산 필드: 셔틀비 */

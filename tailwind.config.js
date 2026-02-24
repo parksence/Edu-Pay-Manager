@@ -13,6 +13,18 @@ export default {
         sm: 'calc(var(--radius) - 4px)',
       },
       colors: {
+        indigo: {
+          DEFAULT: '#4F46E5',
+          50: '#EEF2FF',
+          500: '#6366F1',
+          600: '#4F46E5',
+          700: '#4338CA',
+        },
+        rose: {
+          50: '#FFF1F2',
+          200: '#FECDD3',
+          600: '#E11D48',
+        },
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
