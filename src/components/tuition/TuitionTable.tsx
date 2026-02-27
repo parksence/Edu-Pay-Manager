@@ -21,11 +21,20 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { HelpCircle } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { HelpCircle, Search } from 'lucide-react'
 import { useTuitionStore, useDisplayStudents } from '@/store/useTuitionStore'
 import { GRADE_OPTIONS, SHUTTLE_OPTIONS } from '@/lib/constants'
 import type { SortColumn } from '@/lib/sortStudents'
 import type { StudentRow, StudentGrade, ShuttleType } from '@/types'
+
+const FILTER_ALL = 'all'
+
+/** 상세검색: 구분/형제할인/셔틀/납부완료 값 */
+type FilterGrade = StudentGrade | typeof FILTER_ALL
+type FilterSibling = 'yes' | 'no' | typeof FILTER_ALL
+type FilterShuttle = ShuttleType | typeof FILTER_ALL
+type FilterPaid = 'yes' | 'no' | typeof FILTER_ALL
 
 function formatWon(n: number): string {
   return n.toLocaleString('ko-KR')
@@ -246,16 +255,66 @@ function SortableHead({
 export function TuitionTable() {
   const students = useTuitionStore((s) => s.students)
   const addStudent = useTuitionStore((s) => s.addStudent)
+  const updateStudent = useTuitionStore((s) => s.updateStudent)
   const displayStudents = useDisplayStudents()
   const sortBy = useTuitionStore((s) => s.sortBy)
   const sortOrder = useTuitionStore((s) => s.sortOrder)
+  const [nameSearch, setNameSearch] = useState('')
+  const [filterGrade, setFilterGrade] = useState<FilterGrade>(FILTER_ALL)
+  const [filterSibling, setFilterSibling] = useState<FilterSibling>(FILTER_ALL)
+  const [filterShuttle, setFilterShuttle] = useState<FilterShuttle>(FILTER_ALL)
+  const [filterPaid, setFilterPaid] = useState<FilterPaid>(FILTER_ALL)
+
+  const filteredStudents = useMemo(() => {
+    let list = displayStudents
+    const q = nameSearch.trim().toLowerCase()
+    if (q) {
+      list = list.filter((row) => (row.name ?? '').toLowerCase().includes(q))
+    }
+    if (filterGrade !== FILTER_ALL) {
+      list = list.filter((row) => row.grade === filterGrade)
+    }
+    if (filterSibling !== FILTER_ALL) {
+      const want = filterSibling === 'yes'
+      list = list.filter((row) => Boolean(row.siblingDiscount) === want)
+    }
+    if (filterShuttle !== FILTER_ALL) {
+      list = list.filter((row) => row.shuttle === filterShuttle)
+    }
+    if (filterPaid !== FILTER_ALL) {
+      const wantPaid = filterPaid === 'yes'
+      list = list.filter((row) => (row.isPaid ?? true) === wantPaid)
+    }
+    return list
+  }, [displayStudents, nameSearch, filterGrade, filterSibling, filterShuttle, filterPaid])
+
   const totalCount = students.length
+  const filteredCount = filteredStudents.length
+  const hasFilter =
+    nameSearch.trim() ||
+    filterGrade !== FILTER_ALL ||
+    filterSibling !== FILTER_ALL ||
+    filterShuttle !== FILTER_ALL ||
+    filterPaid !== FILTER_ALL
+
+  const handleSetAllPaid = (paid: boolean) => {
+    students.forEach((row) => updateStudent(row.id, { isPaid: paid }))
+  }
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="text-sm font-medium text-muted-foreground">
-          총 <strong className="text-foreground">{totalCount}</strong>건
+          {hasFilter ? (
+            <>
+              검색 <strong className="text-foreground">{filteredCount}</strong>건
+              <span className="ml-1 text-xs">(전체 {totalCount}건)</span>
+            </>
+          ) : (
+            <>
+              총 <strong className="text-foreground">{totalCount}</strong>건
+            </>
+          )}
           {sortBy !== null && (
             <span className="ml-2 text-xs">
               ({SORT_LABELS[sortBy]} {sortOrder === 'asc' ? '오름차순' : '내림차순'})
@@ -265,6 +324,80 @@ export function TuitionTable() {
         <Button type="button" onClick={() => addStudent()} className="rounded-md shadow-sm">
           + 행 추가
         </Button>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
+        <span className="text-xs font-semibold text-muted-foreground shrink-0 w-full sm:w-auto">상세검색</span>
+        <div className="flex items-center gap-1.5">
+          <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">이름</label>
+          <div className="relative flex items-center">
+            <Search className="absolute left-2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="검색"
+              value={nameSearch}
+              onChange={(e) => setNameSearch(e.target.value)}
+              className="h-8 w-32 pl-7 rounded-md border-border text-xs"
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">구분</label>
+          <Select value={filterGrade} onValueChange={(v) => setFilterGrade(v as FilterGrade)}>
+            <SelectTrigger className="h-8 w-[110px] rounded-md border-border text-xs">
+              <SelectValue placeholder="전체" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={FILTER_ALL} className="text-xs">전체</SelectItem>
+              {GRADE_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">형제 할인</label>
+          <Select value={filterSibling} onValueChange={(v) => setFilterSibling(v as FilterSibling)}>
+            <SelectTrigger className="h-8 w-[80px] rounded-md border-border text-xs">
+              <SelectValue placeholder="전체" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={FILTER_ALL} className="text-xs">전체</SelectItem>
+              <SelectItem value="yes" className="text-xs">O</SelectItem>
+              <SelectItem value="no" className="text-xs">X</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">셔틀</label>
+          <Select value={filterShuttle} onValueChange={(v) => setFilterShuttle(v as FilterShuttle)}>
+            <SelectTrigger className="h-8 w-[110px] rounded-md border-border text-xs">
+              <SelectValue placeholder="전체" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={FILTER_ALL} className="text-xs">전체</SelectItem>
+              {SHUTTLE_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">납부 완료</label>
+          <Select value={filterPaid} onValueChange={(v) => setFilterPaid(v as FilterPaid)}>
+            <SelectTrigger className="h-8 w-[90px] rounded-md border-border text-xs">
+              <SelectValue placeholder="전체" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={FILTER_ALL} className="text-xs">전체</SelectItem>
+              <SelectItem value="yes" className="text-xs">완료</SelectItem>
+              <SelectItem value="no" className="text-xs">미완료</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         <Table>
@@ -279,7 +412,30 @@ export function TuitionTable() {
               <SortableHead column="shuttle">셔틀</SortableHead>
               <TableHead className="py-2.5 font-semibold">교재비</TableHead>
               <TableHead className="py-2.5 font-semibold">결석 차감</TableHead>
-              <TableHead className="whitespace-nowrap py-2.5 text-center font-semibold">납부 완료</TableHead>
+              <TableHead className="whitespace-nowrap py-2.5 text-center font-semibold">
+                <span className="block">납부 완료</span>
+                <span className="mt-1 flex items-center justify-center gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-1.5 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => handleSetAllPaid(true)}
+                  >
+                    전체 체크
+                  </Button>
+                  <span className="text-muted-foreground/50">|</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-1.5 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => handleSetAllPaid(false)}
+                  >
+                    전체 해제
+                  </Button>
+                </span>
+              </TableHead>
               <TableHead className="py-2.5 font-semibold">납부 금액</TableHead>
               <TableHead className="whitespace-nowrap py-2.5 text-right font-semibold">기본 수업료</TableHead>
               <TableHead className="whitespace-nowrap py-2.5 text-right font-semibold">셔틀비</TableHead>
@@ -308,14 +464,16 @@ export function TuitionTable() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {displayStudents.length === 0 ? (
+            {filteredStudents.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={15} className="h-32 text-center text-muted-foreground">
-                  등록된 학생이 없습니다. 엑셀을 불러오거나 &quot;행 추가&quot;로 추가해 보세요.
+                  {hasFilter
+                    ? '검색 결과가 없습니다. 조건을 바꿔 보세요.'
+                    : '등록된 학생이 없습니다. 엑셀을 불러오거나 "행 추가"로 추가해 보세요.'}
                 </TableCell>
               </TableRow>
             ) : (
-              displayStudents.map((row, index) => (
+              filteredStudents.map((row, index) => (
                 <EditableRow key={row.id} row={row} index={index} />
               ))
             )}

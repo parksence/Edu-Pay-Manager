@@ -98,7 +98,7 @@ export function useTotalDeduction(): number {
   )
 }
 
-/** 미납 인원 수 & 미납 금액 합계 (원장님 KPI용) */
+/** 미납 인원 수 & 미납 금액 합계 (KPI용) */
 export function useUnpaidSummary(): { count: number; totalAmount: number } {
   return useTuitionStore(
     useShallow((state) => {
@@ -119,7 +119,7 @@ export function useUnpaidSummary(): { count: number; totalAmount: number } {
   )
 }
 
-/** 미납자 명단: 이름 + 미납 금액 (원장님 KPI/PDF용) */
+/** 미납자 명단: 이름 + 미납 금액 (KPI/PDF용) */
 export type UnpaidStudent = { name: string; unpaidAmount: number; notes?: string; phone?: string }
 
 /** students에서 미납자만 추출 (컴포넌트에서 useMemo와 함께 사용) */
