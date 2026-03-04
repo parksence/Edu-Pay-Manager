@@ -21,10 +21,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { useState, useMemo } from 'react'
-import { HelpCircle, Search } from 'lucide-react'
+import { useState, useMemo, useCallback } from 'react'
+import { HelpCircle, Search, Copy, Check } from 'lucide-react'
 import { useTuitionStore, useDisplayStudents } from '@/store/useTuitionStore'
 import { GRADE_OPTIONS, SHUTTLE_OPTIONS } from '@/lib/constants'
+import { buildParentMessage } from '@/lib/parentMessage'
 import type { SortColumn } from '@/lib/sortStudents'
 import type { StudentRow, StudentGrade, ShuttleType } from '@/types'
 
@@ -40,7 +41,15 @@ function formatWon(n: number): string {
   return n.toLocaleString('ko-KR')
 }
 
-function EditableRow({ row, index }: { row: StudentRow; index: number }) {
+function EditableRow({
+  row,
+  index,
+  onCopyMent,
+}: {
+  row: StudentRow
+  index: number
+  onCopyMent?: (row: StudentRow) => void
+}) {
   const updateStudent = useTuitionStore((s) => s.updateStudent)
   const removeStudent = useTuitionStore((s) => s.removeStudent)
 
@@ -73,6 +82,20 @@ function EditableRow({ row, index }: { row: StudentRow; index: number }) {
             ))}
           </SelectContent>
         </Select>
+      </TableCell>
+      <TableCell className="py-2">
+        <Input
+          type="number"
+          min={0}
+          value={row.mathFee ?? ''}
+          onChange={(e) =>
+            updateStudent(row.id, {
+              mathFee: parseFloat(e.target.value) || 0,
+            })
+          }
+          placeholder="0"
+          className="h-9 w-24 rounded-md border-border text-right tabular-nums"
+        />
       </TableCell>
       <TableCell className="py-2 text-center">
         <Checkbox
@@ -112,6 +135,14 @@ function EditableRow({ row, index }: { row: StudentRow; index: number }) {
           }
           placeholder="0"
           className="h-9 w-24 rounded-md border-border text-right tabular-nums"
+        />
+      </TableCell>
+      <TableCell className="py-2">
+        <Input
+          value={row.materialsFeeReason ?? ''}
+          onChange={(e) => updateStudent(row.id, { materialsFeeReason: e.target.value })}
+          placeholder="사유 입력"
+          className="h-9 min-w-[80px] rounded-md border-border bg-background text-sm"
         />
       </TableCell>
       <TableCell className="py-2">
@@ -158,6 +189,9 @@ function EditableRow({ row, index }: { row: StudentRow; index: number }) {
       <TableCell className="py-2 text-right text-sm tabular-nums text-muted-foreground">
         {formatWon(row.shuttleFee ?? 0)}
       </TableCell>
+      <TableCell className="py-2 text-right text-sm tabular-nums font-medium text-destructive">
+        {formatWon(row.discountAmount ?? 0)}
+      </TableCell>
       <TableCell className="py-2 text-right font-bold tabular-nums text-foreground">
         {formatWon(row.finalAmount ?? 0)}
       </TableCell>
@@ -187,7 +221,26 @@ function EditableRow({ row, index }: { row: StudentRow; index: number }) {
           className="h-9 min-w-[100px] rounded-md border-border bg-background text-sm"
         />
       </TableCell>
-      <TableCell className="w-[72px] shrink-0 py-2">
+      <TableCell className="shrink-0 py-2">
+        {onCopyMent && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-9 gap-1.5 px-2 text-muted-foreground hover:text-foreground"
+                onClick={() => onCopyMent(row)}
+              >
+                <Copy className="h-4 w-4 shrink-0" />
+                <span className="whitespace-nowrap text-xs">멘트 복사</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>학부모에게 보낼 수강료·셔틀·교재비 멘트를 클립보드에 복사합니다</TooltipContent>
+          </Tooltip>
+        )}
+      </TableCell>
+      <TableCell className="shrink-0 py-2">
         <Button
           type="button"
           variant="ghost"
@@ -211,7 +264,7 @@ const SORT_LABELS: Record<SortColumn, string> = {
 }
 
 const FORMULA_TOOLTIP =
-  '최종 금액 = (기본 수업료 × 0.95^형제할인) + 셔틀비 + 교재비 - 결석 차감'
+  '최종 금액 = (기본 수업료(수학 수강료 포함) × 0.95^형제할인) + 셔틀비 + 교재비 - 결석 차감'
 
 function SortableHead({
   column,
@@ -301,8 +354,26 @@ export function TuitionTable() {
     students.forEach((row) => updateStudent(row.id, { isPaid: paid }))
   }
 
+  const [toastVisible, setToastVisible] = useState(false)
+  const handleMentCopy = useCallback(async (row: StudentRow) => {
+    const text = buildParentMessage(row)
+    try {
+      await navigator.clipboard.writeText(text)
+      setToastVisible(true)
+      setTimeout(() => setToastVisible(false), 2500)
+    } catch {
+      alert('복사에 실패했습니다.')
+    }
+  }, [])
+
   return (
-    <div className="space-y-4">
+    <div className="relative space-y-4">
+      {toastVisible && (
+        <div className="fixed left-1/2 top-6 z-[100] flex -translate-x-1/2 items-center gap-2 rounded-lg border border-green-700/30 bg-green-600 px-4 py-3 text-base font-semibold text-white shadow-xl ring-2 ring-green-400/20">
+          <Check className="h-5 w-5 shrink-0" />
+          <span>학부모용 멘트가 클립보드에 복사되었습니다</span>
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="text-sm font-medium text-muted-foreground">
           {hasFilter ? (
@@ -406,11 +477,13 @@ export function TuitionTable() {
               <TableHead className="w-14 shrink-0 py-2.5 text-center font-semibold">No</TableHead>
               <SortableHead column="name">이름</SortableHead>
               <SortableHead column="grade">구분</SortableHead>
+              <TableHead className="py-2.5 font-semibold">수학 수강료</TableHead>
               <SortableHead column="siblingDiscount" className="whitespace-nowrap text-center">
                 형제 할인
               </SortableHead>
               <SortableHead column="shuttle">셔틀</SortableHead>
               <TableHead className="py-2.5 font-semibold">교재비</TableHead>
+              <TableHead className="py-2.5 font-semibold">교재비 사유</TableHead>
               <TableHead className="py-2.5 font-semibold">결석 차감</TableHead>
               <TableHead className="whitespace-nowrap py-2.5 text-center font-semibold">
                 <span className="block">납부 완료</span>
@@ -439,6 +512,7 @@ export function TuitionTable() {
               <TableHead className="py-2.5 font-semibold">납부 금액</TableHead>
               <TableHead className="whitespace-nowrap py-2.5 text-right font-semibold">기본 수업료</TableHead>
               <TableHead className="whitespace-nowrap py-2.5 text-right font-semibold">셔틀비</TableHead>
+              <TableHead className="whitespace-nowrap py-2.5 text-right font-semibold text-destructive">할인금액</TableHead>
               <SortableHead column="finalAmount" className="whitespace-nowrap text-right">
                 <span className="inline-flex items-center gap-1">
                   최종 금액
@@ -460,13 +534,14 @@ export function TuitionTable() {
               <TableHead className="whitespace-nowrap py-2.5 text-right font-semibold">미납액</TableHead>
               <TableHead className="whitespace-nowrap py-2.5 font-semibold">비고</TableHead>
               <TableHead className="whitespace-nowrap py-2.5 font-semibold">연락처</TableHead>
-              <TableHead className="w-[72px] shrink-0 py-2.5" />
+              <TableHead className="whitespace-nowrap py-2.5 text-center font-semibold">학부모용 멘트</TableHead>
+              <TableHead className="whitespace-nowrap py-2.5 text-center font-semibold">작업</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredStudents.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={15} className="h-32 text-center text-muted-foreground">
+                <TableCell colSpan={20} className="h-32 text-center text-muted-foreground">
                   {hasFilter
                     ? '검색 결과가 없습니다. 조건을 바꿔 보세요.'
                     : '등록된 학생이 없습니다. 엑셀을 불러오거나 "행 추가"로 추가해 보세요.'}
@@ -474,7 +549,12 @@ export function TuitionTable() {
               </TableRow>
             ) : (
               filteredStudents.map((row, index) => (
-                <EditableRow key={row.id} row={row} index={index} />
+                <EditableRow
+                  key={row.id}
+                  row={row}
+                  index={index}
+                  onCopyMent={handleMentCopy}
+                />
               ))
             )}
           </TableBody>

@@ -45,7 +45,9 @@ export const useTuitionStore = create<TuitionState>()(
           grade: row?.grade ?? 'elementary_regular',
           siblingDiscount: row?.siblingDiscount ?? false,
           shuttle: row?.shuttle ?? 'none',
+          mathFee: row?.mathFee ?? 0,
           materialsFee: row?.materialsFee ?? 0,
+          materialsFeeReason: row?.materialsFeeReason ?? '',
           absenceDeduction: row?.absenceDeduction ?? 0,
           isPaid: row?.isPaid ?? true,
           paidAmount: row?.paidAmount ?? 0,
@@ -53,7 +55,7 @@ export const useTuitionStore = create<TuitionState>()(
           phone: row?.phone ?? '',
         }
         const withCalc = applyCalculations([newRow])[0]
-        set({ students: [...get().students, withCalc] })
+        set({ students: [withCalc, ...get().students] })
       },
 
       updateStudent: (id, patch) => {

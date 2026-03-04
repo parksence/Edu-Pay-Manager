@@ -10,19 +10,23 @@ export function getShuttleFee(shuttle: ShuttleType): number {
 }
 
 /**
- * 최종 금액 = (기본 수업료 × 0.95^형제할인) + 셔틀비 + 교재비 - 결석 차감
+ * 최종 금액 = (기본 수업료(수학 수강료 포함) × 0.95^형제할인) + 셔틀비 + 교재비 - 결석 차감
  * 형제 할인 true → ×0.95, false → ×1
  */
-export function calculateFinalAmount(row: StudentRow): Pick<StudentRow, 'baseTuition' | 'shuttleFee' | 'finalAmount'> {
-  const baseTuition = getBaseTuition(row.grade)
+export function calculateFinalAmount(row: StudentRow): Pick<StudentRow, 'baseTuition' | 'shuttleFee' | 'discountAmount' | 'finalAmount'> {
+  const gradeBase = getBaseTuition(row.grade)
+  const mathFee = Number(row.mathFee) || 0
+  const effectiveBase = gradeBase + mathFee
   const shuttleFee = getShuttleFee(row.shuttle)
-  const discountedTuition = baseTuition * Math.pow(SIBLING_DISCOUNT_RATE, row.siblingDiscount ? 1 : 0)
+  const discountedTuition = effectiveBase * Math.pow(SIBLING_DISCOUNT_RATE, row.siblingDiscount ? 1 : 0)
   const materialsFee = Number(row.materialsFee) || 0
   const absenceDeduction = Number(row.absenceDeduction) || 0
   const finalAmount = Math.max(0, discountedTuition + shuttleFee + materialsFee - absenceDeduction)
+  const discountAmount = (effectiveBase - discountedTuition) + absenceDeduction
   return {
-    baseTuition,
+    baseTuition: effectiveBase,
     shuttleFee,
+    discountAmount,
     finalAmount,
   }
 }

@@ -20,7 +20,11 @@ export interface StudentRow {
   grade: StudentGrade;
   siblingDiscount: boolean;
   shuttle: ShuttleType;
+  /** 수학 수강료 (원). 있으면 기본 수업료에 포함되어 최종 금액에 반영. optional */
+  mathFee?: number;
   materialsFee: number;
+  /** 교재비 사유 (메모). optional */
+  materialsFeeReason?: string;
   absenceDeduction: number;
   /** 납부 완료 여부 (기본값: true = 납부한 걸로). 기존 저장 데이터 호환용 optional */
   isPaid?: boolean;
@@ -34,6 +38,8 @@ export interface StudentRow {
   baseTuition?: number;
   /** 계산 필드: 셔틀비 */
   shuttleFee?: number;
+  /** 계산 필드: 할인·차감 합계 (형제 할인 금액 + 결석 차감) */
+  discountAmount?: number;
   /** 계산 필드: 최종 금액 */
   finalAmount?: number;
 }

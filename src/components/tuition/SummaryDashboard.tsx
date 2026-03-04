@@ -163,7 +163,7 @@ export function SummaryDashboard() {
           <div className="border-t border-border px-4 pb-3 pt-2 text-sm text-muted-foreground">
             <ol className="list-decimal space-y-1 pl-4">
               <li>상단 <strong className="text-foreground">엑셀 양식 다운로드</strong>로 빈 양식을 받습니다.</li>
-              <li>첫 번째 행은 컬럼명(이름, 구분, 형제할인, 셔틀, 교재비, 결석차감) 그대로 두고, <strong className="text-foreground">두 번째 행부터</strong> 한 줄에 한 명씩 입력합니다.</li>
+              <li>첫 번째 행은 컬럼명(이름, 구분, 수학 수강료, 형제할인, 셔틀, 교재비, 교재비 사유, 결석차감 등) 그대로 두고, <strong className="text-foreground">두 번째 행부터</strong> 한 줄에 한 명씩 입력합니다.</li>
               <li><strong className="text-foreground">구분</strong>은 반드시 아래 중 하나로: 초등(원장), 초등, 중등(원장), 중등, 고등</li>
               <li><strong className="text-foreground">셔틀</strong>은 둔산 편도, 둔산, 기타 편도, 기타, 해당 없음 (빈값이면 해당 없음)</li>
               <li><strong className="text-foreground">형제할인</strong>은 O만 예, 빈값이면 아니오</li>

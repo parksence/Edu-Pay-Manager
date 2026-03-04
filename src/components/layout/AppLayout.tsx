@@ -16,7 +16,7 @@ import { useTuitionStore } from '@/store/useTuitionStore'
 import { parseKpiFromHash, type KpiSnapshot } from '@/lib/kpiShare'
 
 const FORMULA_TEXT =
-  '최종 금액 = (기본 수업료 × 0.95^형제할인) + 셔틀비 + 교재비 - 결석 차감'
+  '최종 금액 = (기본 수업료(수학 수강료 포함) × 0.95^형제할인) + 셔틀비 + 교재비 - 결석 차감'
 
 function readSharedKpi(): KpiSnapshot | null {
   if (typeof window === 'undefined') return null
