@@ -43,16 +43,13 @@ export const useTuitionStore = create<TuitionState>()(
           id,
           name: row?.name ?? '',
           grade: row?.grade ?? 'elementary_regular',
-          siblingDiscount: row?.siblingDiscount ?? false,
+          discount: row?.discount ?? 0,
           shuttle: row?.shuttle ?? 'none',
           mathFee: row?.mathFee ?? 0,
           materialsFee: row?.materialsFee ?? 0,
           materialsFeeReason: row?.materialsFeeReason ?? '',
           absenceDeduction: row?.absenceDeduction ?? 0,
-          isPaid: row?.isPaid ?? true,
-          paidAmount: row?.paidAmount ?? 0,
           notes: row?.notes ?? '',
-          phone: row?.phone ?? '',
         }
         const withCalc = applyCalculations([newRow])[0]
         set({ students: [withCalc, ...get().students] })
@@ -98,45 +95,6 @@ export function useTotalDeduction(): number {
   return useTuitionStore((state) =>
     state.students.reduce((sum, s) => sum + (s.absenceDeduction ?? 0), 0)
   )
-}
-
-/** 미납 인원 수 & 미납 금액 합계 (KPI용) */
-export function useUnpaidSummary(): { count: number; totalAmount: number } {
-  return useTuitionStore(
-    useShallow((state) => {
-      let count = 0
-      let totalAmount = 0
-      for (const s of state.students) {
-        const final = s.finalAmount ?? 0
-        const paid =
-          (s.isPaid ?? true) && (s.paidAmount ?? 0) === 0 ? final : (s.paidAmount ?? 0)
-        const unpaid = final - paid
-        if (unpaid > 0) {
-          count += 1
-          totalAmount += unpaid
-        }
-      }
-      return { count, totalAmount }
-    })
-  )
-}
-
-/** 미납자 명단: 이름 + 미납 금액 (KPI/PDF용) */
-export type UnpaidStudent = { name: string; unpaidAmount: number; notes?: string; phone?: string }
-
-/** students에서 미납자만 추출 (컴포넌트에서 useMemo와 함께 사용) */
-export function getUnpaidStudents(students: StudentRow[]): UnpaidStudent[] {
-  const list: UnpaidStudent[] = []
-  for (const s of students) {
-    const final = s.finalAmount ?? 0
-    const paid =
-      (s.isPaid ?? true) && (s.paidAmount ?? 0) === 0 ? final : (s.paidAmount ?? 0)
-    const unpaid = final - paid
-    if (unpaid > 0) {
-      list.push({ name: s.name || '(이름 없음)', unpaidAmount: unpaid, notes: s.notes ?? '', phone: s.phone ?? '' })
-    }
-  }
-  return list
 }
 
 /** 학생 수 현황: 초/중/고 등급별 인원 */

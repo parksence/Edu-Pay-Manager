@@ -8,8 +8,6 @@ import {
   useDisplayStudents,
   useMaterialsRevenue,
   useTotalDeduction,
-  useUnpaidSummary,
-  getUnpaidStudents,
 } from '@/store/useTuitionStore'
 import { parseExcelToStudents, downloadStudentsExcel, downloadTemplateExcel } from '@/lib/excel'
 import { buildKakaoSummary } from '@/lib/kakaoSummary'
@@ -29,14 +27,11 @@ export function SummaryDashboard() {
   const totalRevenue = useTotalRevenue()
   const materialsRevenue = useMaterialsRevenue()
   const totalDeduction = useTotalDeduction()
-  const unpaidSummary = useUnpaidSummary()
   const setStudents = useTuitionStore((s) => s.setStudents)
   const students = useTuitionStore((s) => s.students)
   const displayStudents = useDisplayStudents()
   const inputRef = useRef<HTMLInputElement>(null)
   const [toastVisible, setToastVisible] = useState(false)
-
-  const unpaidList = getUnpaidStudents(students)
 
   const handleCopyKakaoSummary = useCallback(async () => {
     const text = buildKakaoSummary({
@@ -45,9 +40,6 @@ export function SummaryDashboard() {
       studentCount: students.length,
       materialsRevenue,
       totalDeduction,
-      unpaidCount: unpaidSummary.count,
-      totalUnpaidAmount: unpaidSummary.totalAmount,
-      unpaidList: unpaidList.map((u) => ({ name: u.name, unpaidAmount: u.unpaidAmount })),
     })
     try {
       await navigator.clipboard.writeText(text)
@@ -61,9 +53,6 @@ export function SummaryDashboard() {
     students.length,
     materialsRevenue,
     totalDeduction,
-    unpaidSummary.count,
-    unpaidSummary.totalAmount,
-    unpaidList,
   ])
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -163,10 +152,10 @@ export function SummaryDashboard() {
           <div className="border-t border-border px-4 pb-3 pt-2 text-sm text-muted-foreground">
             <ol className="list-decimal space-y-1 pl-4">
               <li>상단 <strong className="text-foreground">엑셀 양식 다운로드</strong>로 빈 양식을 받습니다.</li>
-              <li>첫 번째 행은 컬럼명(이름, 구분, 수학 수강료, 형제할인, 셔틀, 교재비, 교재비 사유, 결석차감 등) 그대로 두고, <strong className="text-foreground">두 번째 행부터</strong> 한 줄에 한 명씩 입력합니다.</li>
+              <li>첫 번째 행은 컬럼명(이름, 구분, 수학 수강료, 할인, 셔틀, 교재비, 교재비 사유, 결석차감 등) 그대로 두고, <strong className="text-foreground">두 번째 행부터</strong> 한 줄에 한 명씩 입력합니다.</li>
               <li><strong className="text-foreground">구분</strong>은 반드시 아래 중 하나로: 초등(원장), 초등, 중등(원장), 중등, 고등</li>
               <li><strong className="text-foreground">셔틀</strong>은 둔산 편도, 둔산, 기타 편도, 기타, 해당 없음 (빈값이면 해당 없음)</li>
-              <li><strong className="text-foreground">형제할인</strong>은 O만 예, 빈값이면 아니오</li>
+              <li><strong className="text-foreground">할인</strong>은 수업료(기본+수학)에서 빼는 금액(원). 구 엑셀의 형제할인(O) 열은 자동으로 5% 할인액으로 읽힙니다.</li>
               <li>저장한 뒤 <strong className="text-foreground">엑셀 불러오기</strong>에서 해당 파일을 선택하면 됩니다.</li>
             </ol>
           </div>

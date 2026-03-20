@@ -1,4 +1,4 @@
-import type { UnpaidStudent, StudentsByGrade } from '@/store/useTuitionStore'
+import type { StudentsByGrade } from '@/store/useTuitionStore'
 
 /** 구분별 매출 (파이 차트용) */
 export type PieDataItem = { name: string; value: number }
@@ -10,9 +10,6 @@ export interface KpiSnapshot {
   studentsByGrade: StudentsByGrade
   materialsRevenue: number
   totalDeduction: number
-  unpaidCount: number
-  totalUnpaidAmount: number
-  unpaidStudents: UnpaidStudent[]
   /** 구분별 매출 비중 (초/중/고) - 차트용 */
   pieData?: PieDataItem[]
 }
@@ -41,10 +38,7 @@ export function parseKpiFromHash(): KpiSnapshot | null {
       typeof data.expectedRevenue !== 'number' ||
       !data.studentsByGrade ||
       typeof data.materialsRevenue !== 'number' ||
-      typeof data.totalDeduction !== 'number' ||
-      typeof data.unpaidCount !== 'number' ||
-      typeof data.totalUnpaidAmount !== 'number' ||
-      !Array.isArray(data.unpaidStudents)
+      typeof data.totalDeduction !== 'number'
     ) {
       return null
     }

@@ -1,7 +1,7 @@
 import type { StudentRow, StudentGrade, ShuttleType } from '@/types'
 
 /** 정렬 가능한 컬럼 */
-export type SortColumn = 'name' | 'grade' | 'siblingDiscount' | 'shuttle' | 'finalAmount'
+export type SortColumn = 'name' | 'grade' | 'discount' | 'shuttle' | 'finalAmount'
 
 const GRADE_ORDER: StudentGrade[] = [
   'elementary_principal',
@@ -37,8 +37,8 @@ export function sortStudents(
       case 'grade':
         cmp = GRADE_ORDER.indexOf(a.grade) - GRADE_ORDER.indexOf(b.grade)
         break
-      case 'siblingDiscount':
-        cmp = Number(a.siblingDiscount) - Number(b.siblingDiscount)
+      case 'discount':
+        cmp = (Number(a.discount) || 0) - (Number(b.discount) || 0)
         break
       case 'shuttle':
         cmp = SHUTTLE_ORDER.indexOf(a.shuttle) - SHUTTLE_ORDER.indexOf(b.shuttle)

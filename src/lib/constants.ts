@@ -18,7 +18,7 @@ export const SHUTTLE_FEE: Record<ShuttleType, number> = {
   none: 0,
 }
 
-/** 형제 할인율 (기본 수업료 × 0.95) */
+/** 구 저장 데이터 형제할인 O → 금액 환산 시 사용 (5% 할인에 해당) */
 export const SIBLING_DISCOUNT_RATE = 0.95
 
 /** 구분 한글 라벨 (UI·엑셀 매핑) */

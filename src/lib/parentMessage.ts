@@ -1,5 +1,5 @@
 import type { StudentRow } from '@/types'
-import { SIBLING_DISCOUNT_RATE } from './constants'
+import { getBaseTuition, appliedTuitionDiscountWon } from './calculations'
 
 /** 만원/천원 포맷: 350000 → "35만원", 5000 → "5천원", 1400 → "1,400원" */
 export function formatManChonWon(n: number): string {
@@ -19,42 +19,46 @@ export function formatWonOnly(n: number): string {
   return n.toLocaleString('ko-KR') + '원'
 }
 
+/** 안내 멘트에 쓸 월(1–12): 기본은 오늘 기준 다음 달(연말→다음 해 1월) */
+export function getDefaultMentMonth(reference = new Date()): number {
+  return new Date(reference.getFullYear(), reference.getMonth() + 1, 1).getMonth() + 1
+}
+
 /**
  * 학부모에게 보낼 복붙 멘트 한 줄 생성
- * - N월 수강료(영어 O만원[, 수학 O만원]), N월 셔틀비(O만원), 교재비(사유_O원)[, - 결석 차감][, - 형제 할인]
+ * - N월 수강료·셔틀비: 기본 N은 다음 달 (`month` 생략 시)
  */
 export function buildParentMessage(row: StudentRow, month?: number): string {
-  const m = month ?? new Date().getMonth() + 1
-  const baseTuition = row.baseTuition ?? 0
-  const discountedBase = Math.round(
-    baseTuition * (row.siblingDiscount ? SIBLING_DISCOUNT_RATE : 1)
-  )
-  const mathFee = row.mathFee ?? 0
+  const m = month ?? getDefaultMentMonth()
+  const english = getBaseTuition(row.grade)
+  const mathFee = Number(row.mathFee) || 0
+  const effectiveBase = english + mathFee
+  const disc = appliedTuitionDiscountWon(row, effectiveBase)
+  const tuitionAfter = Math.max(0, effectiveBase - disc)
   const shuttleFee = row.shuttleFee ?? 0
   const materialsFee = Number(row.materialsFee) || 0
   const materialsFeeReason = (row.materialsFeeReason ?? '').trim()
   const absenceDeduction = Number(row.absenceDeduction) || 0
-  const siblingDiscountAmount = row.siblingDiscount ? baseTuition - discountedBase : 0
 
   const parts: string[] = []
 
-  // 수강료 (0원이면 생략)
-  if (discountedBase > 0 || mathFee > 0) {
+  if (effectiveBase > 0) {
     if (mathFee === 0) {
-      parts.push(`${m}월 수강료(${formatManChonWon(discountedBase)})`)
+      parts.push(`${m}월 수강료(${formatManChonWon(tuitionAfter)})`)
     } else {
+      const enShare =
+        effectiveBase > 0 ? Math.round((tuitionAfter * english) / effectiveBase) : 0
+      const mathShare = tuitionAfter - enShare
       parts.push(
-        `${m}월 수강료 (영어 ${formatManChonWon(discountedBase)}, 수학 ${formatManChonWon(mathFee)})`
+        `${m}월 수강료 (영어 ${formatManChonWon(enShare)}, 수학 ${formatManChonWon(mathShare)})`
       )
     }
   }
 
-  // 셔틀비 (0원이면 생략)
   if (shuttleFee > 0) {
     parts.push(`${m}월 셔틀비(${formatManChonWon(shuttleFee)})`)
   }
 
-  // 교재비
   if (materialsFee > 0) {
     if (materialsFeeReason) {
       parts.push(`교재비(${materialsFeeReason}_${formatWonOnly(materialsFee)})`)
@@ -63,12 +67,8 @@ export function buildParentMessage(row: StudentRow, month?: number): string {
     }
   }
 
-  // 차감: 결석 차감 먼저, 형제 할인 나중
   if (absenceDeduction > 0) {
     parts.push(` - 결석 차감 ${formatManChonWon(absenceDeduction)}`)
-  }
-  if (siblingDiscountAmount > 0) {
-    parts.push(` - 형제 할인 ${formatManChonWon(siblingDiscountAmount)}`)
   }
 
   return parts.join(', ')

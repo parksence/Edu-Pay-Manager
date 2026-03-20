@@ -7,18 +7,18 @@ const EXPORT_HEADERS = [
   '이름',
   '구분',
   '수학 수강료',
-  '형제할인',
+  '할인',
   '셔틀',
   '교재비',
   '교재비 사유',
   '결석차감',
-  '납부완료',
-  '납부금액',
   '비고',
-  '연락처',
 ] as const
 
 type RawRow = Record<string, string | number | boolean | undefined>
+
+/** 파싱 직후 계산용(구 양식 형제할인 O → siblingDiscount 플래그) */
+type ParsedStudent = StudentRow & { siblingDiscount?: boolean }
 
 function parseNumber(v: unknown): number {
   if (typeof v === 'number' && !Number.isNaN(v)) return v
@@ -29,23 +29,12 @@ function parseNumber(v: unknown): number {
   return 0
 }
 
-/** 형제할인: O만 예, 빈값·그 외는 아니오 */
-function parseSiblingDiscount(v: unknown): boolean {
+/** 구 양식 엑셀: 형제할인 O만 예 */
+function parseLegacySiblingFlag(v: unknown): boolean {
   if (typeof v === 'boolean') return v
   if (typeof v === 'string') {
     const s = v.trim()
     if (s === 'O' || s === 'o' || s === '예') return true
-  }
-  return false
-}
-
-/** 납부완료: O/예/true만 true, 빈값·그 외는 false. 엑셀 미입력 시 기본 true는 parse 후 적용 */
-function parseIsPaid(v: unknown): boolean {
-  if (typeof v === 'boolean') return v
-  if (typeof v === 'string') {
-    const s = v.trim()
-    if (s === 'O' || s === 'o' || s === '예' || s === 'Y' || s === 'y') return true
-    if (s === '' || s === 'X' || s === 'x' || s === '아니오') return false
   }
   return false
 }
@@ -69,33 +58,31 @@ export function parseExcelToStudents(file: File): Promise<StudentRow[]> {
         }
         const sheet = wb.Sheets[firstSheet]
         const rows = XLSX.utils.sheet_to_json<RawRow>(sheet, { defval: '' })
-        const students: StudentRow[] = rows.map((raw, index) => {
+        const students: ParsedStudent[] = rows.map((raw, index) => {
           const name = String(raw['이름'] ?? raw['name'] ?? '').trim()
           const gradeRaw = String(raw['구분'] ?? raw['grade'] ?? '').trim()
           const shuttleRaw = String(raw['셔틀'] ?? raw['shuttle'] ?? '').trim()
           const grade: StudentGrade = LABEL_TO_GRADE[gradeRaw] ?? 'elementary_regular'
           const shuttle: ShuttleType = shuttleRaw === '' ? 'none' : (LABEL_TO_SHUTTLE[shuttleRaw] ?? 'none')
-          const paidAmount = parseNumber(raw['납부금액'] ?? raw['paidAmount'] ?? 0)
-          const isPaidRaw = raw['납부완료'] ?? raw['isPaid']
-          const isPaid = isPaidRaw === undefined || isPaidRaw === '' ? true : parseIsPaid(isPaidRaw)
           const notes = String(raw['비고'] ?? raw['notes'] ?? '').trim()
-          const phone = String(raw['연락처'] ?? raw['phone'] ?? '').trim()
           const materialsFeeReason = String(raw['교재비 사유'] ?? raw['materialsFeeReason'] ?? '').trim()
-          return {
+          const discount = parseNumber(raw['할인'] ?? raw['discount'] ?? 0)
+          const row: ParsedStudent = {
             id: crypto.randomUUID(),
             name: name || `학생 ${index + 1}`,
             grade,
-            siblingDiscount: parseSiblingDiscount(raw['형제할인'] ?? raw['siblingDiscount'] ?? ''),
+            discount,
             shuttle,
             mathFee: parseNumber(raw['수학 수강료'] ?? raw['수학금액'] ?? raw['mathFee'] ?? 0),
             materialsFee: parseNumber(raw['교재비'] ?? raw['materialsFee'] ?? 0),
             materialsFeeReason,
             absenceDeduction: parseNumber(raw['결석차감'] ?? raw['absenceDeduction'] ?? 0),
-            isPaid,
-            paidAmount,
             notes,
-            phone,
           }
+          if (discount === 0 && parseLegacySiblingFlag(raw['형제할인'] ?? raw['siblingDiscount'] ?? '')) {
+            row.siblingDiscount = true
+          }
+          return row
         })
         resolve(applyCalculations(students))
       } catch (err) {
@@ -113,15 +100,12 @@ export function studentsToExportData(students: StudentRow[]): Record<string, str
     [EXPORT_HEADERS[0]]: row.name,
     [EXPORT_HEADERS[1]]: GRADE_LABELS[row.grade],
     [EXPORT_HEADERS[2]]: row.mathFee ?? 0,
-    [EXPORT_HEADERS[3]]: row.siblingDiscount ? 'O' : '',
+    [EXPORT_HEADERS[3]]: row.discount ?? 0,
     [EXPORT_HEADERS[4]]: SHUTTLE_LABELS[row.shuttle],
     [EXPORT_HEADERS[5]]: row.materialsFee,
     [EXPORT_HEADERS[6]]: row.materialsFeeReason ?? '',
     [EXPORT_HEADERS[7]]: row.absenceDeduction,
-    [EXPORT_HEADERS[8]]: (row.isPaid ?? true) ? 'O' : '',
-    [EXPORT_HEADERS[9]]: row.paidAmount ?? 0,
-    [EXPORT_HEADERS[10]]: row.notes ?? '',
-    [EXPORT_HEADERS[11]]: row.phone ?? '',
+    [EXPORT_HEADERS[8]]: row.notes ?? '',
   }))
 }
 
@@ -136,15 +120,75 @@ export function downloadStudentsExcel(students: StudentRow[], filename?: string)
 }
 
 /** 불러오기용 엑셀 양식 다운로드 (헤더 + 조건별 예시 행) */
-const IMPORT_HEADERS = ['이름', '구분', '수학 수강료', '형제할인', '셔틀', '교재비', '교재비 사유', '결석차감', '납부완료', '납부금액', '비고', '연락처'] as const
+const IMPORT_HEADERS = [
+  '이름',
+  '구분',
+  '수학 수강료',
+  '할인',
+  '셔틀',
+  '교재비',
+  '교재비 사유',
+  '결석차감',
+  '비고',
+] as const
 
 export function downloadTemplateExcel(): void {
   const exampleRows = [
-    { 이름: '예시1_초등원장', 구분: '초등(원장)', '수학 수강료': 0, 형제할인: '', 셔틀: '해당 없음', 교재비: 0, '교재비 사유': '', 결석차감: 0, 납부완료: 'O', 납부금액: 0, 비고: '', 연락처: '' },
-    { 이름: '예시2_초등', 구분: '초등', '수학 수강료': 20000, 형제할인: 'O', 셔틀: '둔산 편도', 교재비: 15000, '교재비 사유': '워크북', 결석차감: 0, 납부완료: 'O', 납부금액: 0, 비고: '', 연락처: '' },
-    { 이름: '예시3_중등원장', 구분: '중등(원장)', '수학 수강료': 0, 형제할인: '', 셔틀: '둔산', 교재비: 20000, '교재비 사유': '', 결석차감: 0, 납부완료: '', 납부금액: 100000, 비고: '미납', 연락처: '010-0000-0000' },
-    { 이름: '예시4_중등', 구분: '중등', '수학 수강료': 0, 형제할인: 'O', 셔틀: '기타 편도', 교재비: 0, '교재비 사유': '', 결석차감: 3000, 납부완료: 'O', 납부금액: 0, 비고: '', 연락처: '' },
-    { 이름: '예시5_고등', 구분: '고등', '수학 수강료': 0, 형제할인: '', 셔틀: '기타', 교재비: 25000, '교재비 사유': '문제집', 결석차감: 5000, 납부완료: 'O', 납부금액: 0, 비고: '', 연락처: '' },
+    {
+      이름: '예시1_초등원장',
+      구분: '초등(원장)',
+      '수학 수강료': 0,
+      할인: 0,
+      셔틀: '해당 없음',
+      교재비: 0,
+      '교재비 사유': '',
+      결석차감: 0,
+      비고: '',
+    },
+    {
+      이름: '예시2_초등',
+      구분: '초등',
+      '수학 수강료': 20000,
+      할인: 16000,
+      셔틀: '둔산 편도',
+      교재비: 15000,
+      '교재비 사유': '워크북',
+      결석차감: 0,
+      비고: '',
+    },
+    {
+      이름: '예시3_중등원장',
+      구분: '중등(원장)',
+      '수학 수강료': 0,
+      할인: 0,
+      셔틀: '둔산',
+      교재비: 20000,
+      '교재비 사유': '',
+      결석차감: 0,
+      비고: '',
+    },
+    {
+      이름: '예시4_중등',
+      구분: '중등',
+      '수학 수강료': 0,
+      할인: 0,
+      셔틀: '기타 편도',
+      교재비: 0,
+      '교재비 사유': '',
+      결석차감: 3000,
+      비고: '',
+    },
+    {
+      이름: '예시5_고등',
+      구분: '고등',
+      '수학 수강료': 0,
+      할인: 0,
+      셔틀: '기타',
+      교재비: 25000,
+      '교재비 사유': '문제집',
+      결석차감: 5000,
+      비고: '',
+    },
   ]
   const ws = XLSX.utils.json_to_sheet(exampleRows, { header: [...IMPORT_HEADERS] })
   const wb = XLSX.utils.book_new()

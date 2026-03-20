@@ -5,18 +5,12 @@ import {
   Cell,
   Legend,
   ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
   Tooltip,
-  LabelList,
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useTuitionStore, useUnpaidSummary } from '@/store/useTuitionStore'
+import { useTuitionStore } from '@/store/useTuitionStore'
 import type { KpiSnapshot } from '@/lib/kpiShare'
-import { getBaseTuition } from '@/lib/calculations'
-import { SIBLING_DISCOUNT_RATE } from '@/lib/constants'
+import { appliedTuitionDiscountWon, getBaseTuition } from '@/lib/calculations'
 
 const GRADE_LABELS: Record<string, string> = {
   elementary: '초등',
@@ -39,7 +33,6 @@ export interface StatisticsChartsProps {
 
 export function StatisticsCharts({ snapshot }: StatisticsChartsProps) {
   const students = useTuitionStore((s) => s.students)
-  const unpaidSummary = useUnpaidSummary()
 
   const pieDataFromStore = useMemo(() => {
     const acc: Record<string, number> = { elementary: 0, middle: 0, high: 0 }
@@ -67,18 +60,22 @@ export function StatisticsCharts({ snapshot }: StatisticsChartsProps) {
       .map(([name, value]) => ({ name: GRADE_LABELS[name] ?? name, value }))
   }, [students])
 
-  /** 항목별 매출 비중: 영어(기본 수업료), 수학, 셔틀, 교재비 (형제 할인 적용) */
+  /** 항목별 매출 비중: 영어(기본 수업료), 수학, 셔틀, 교재비 (할인은 수업료 합산에 비례 배분) */
   const subjectPieDataFromStore = useMemo(() => {
     let english = 0
     let math = 0
     let shuttle = 0
     let materials = 0
     for (const s of students) {
-      const factor = s.siblingDiscount ? SIBLING_DISCOUNT_RATE : 1
       const baseOnly = getBaseTuition(s.grade)
       const mathFee = Number(s.mathFee) || 0
-      english += baseOnly * factor
-      math += mathFee * factor
+      const totalTuition = baseOnly + mathFee
+      const disc = appliedTuitionDiscountWon(s, totalTuition)
+      const afterTuition = Math.max(0, totalTuition - disc)
+      if (totalTuition > 0) {
+        english += (afterTuition * baseOnly) / totalTuition
+        math += (afterTuition * mathFee) / totalTuition
+      }
       shuttle += s.shuttleFee ?? 0
       materials += Number(s.materialsFee) || 0
     }
@@ -90,21 +87,7 @@ export function StatisticsCharts({ snapshot }: StatisticsChartsProps) {
     ].filter((d) => d.value > 0)
   }, [students])
 
-  const totalRevenue = useMemo(
-    () => students.reduce((sum, s) => sum + (s.finalAmount ?? 0), 0),
-    [students]
-  )
-  const liveUnpaid = unpaidSummary.totalAmount
-  const livePaid = Math.max(0, totalRevenue - liveUnpaid)
-
   const pieData = snapshot ? (snapshot.pieData ?? []) : pieDataFromStore
-  const unpaidAmount = snapshot ? snapshot.totalUnpaidAmount : liveUnpaid
-  const paidAmount = snapshot ? Math.max(0, snapshot.expectedRevenue - snapshot.totalUnpaidAmount) : livePaid
-
-  const stackedBarData = useMemo(
-    () => [{ name: '전체', 수납완료: paidAmount, 미납: unpaidAmount }],
-    [paidAmount, unpaidAmount]
-  )
 
   return (
     <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
@@ -222,35 +205,6 @@ export function StatisticsCharts({ snapshot }: StatisticsChartsProps) {
               데이터가 없습니다.
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      <Card className="overflow-hidden border-border shadow-md">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-semibold">
-            수납 완료 vs 미납 금액
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="h-[280px] w-full">
-          <div className="h-full w-full min-h-[200px] min-w-[300px]">
-            <ResponsiveContainer width="100%" height={280} minWidth={300} minHeight={200}>
-              <BarChart
-              layout="vertical"
-              data={stackedBarData}
-              margin={{ top: 16, right: 24, left: 8, bottom: 16 }}
-            >
-              <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 10000).toFixed(0)}만`} />
-              <YAxis type="category" dataKey="name" width={0} tick={false} axisLine={false} tickLine={false} />
-              <Tooltip formatter={(v) => formatWon(Number(v))} />
-              <Bar dataKey="수납완료" name="수납 완료" stackId="a" fill="#22c55e" radius={[0, 4, 4, 0]} minPointSize={8}>
-                <LabelList dataKey="수납완료" position="center" formatter={(v: unknown) => (Number(v) > 0 ? formatWon(Number(v)) : '')} fill="#000" stroke="none" style={{ fontWeight: 600, fontSize: 14 }} />
-              </Bar>
-              <Bar dataKey="미납" name="미납" stackId="a" fill="#ef4444" radius={[0, 4, 4, 0]} minPointSize={8}>
-                <LabelList dataKey="미납" position="center" formatter={(v: unknown) => (Number(v) > 0 ? formatWon(Number(v)) : '')} fill="#000" stroke="none" style={{ fontWeight: 600, fontSize: 14 }} />
-              </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
         </CardContent>
       </Card>
     </div>

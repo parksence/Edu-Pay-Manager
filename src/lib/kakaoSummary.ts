@@ -10,12 +10,6 @@ export interface KakaoSummaryInput {
   materialsRevenue: number
   /** 총 차감액 (결석 등) */
   totalDeduction: number
-  /** 미납 인원 수 */
-  unpaidCount: number
-  /** 미납 합계액 */
-  totalUnpaidAmount: number
-  /** 미납자 명단: 이름, 미납액 */
-  unpaidList: { name: string; unpaidAmount: number }[]
 }
 
 function formatWon(n: number): string {
@@ -33,16 +27,6 @@ export function buildKakaoSummary(input: KakaoSummaryInput): string {
   lines.push(`[매출 요약] 총 예상 매출 ${formatWon(input.totalRevenue)} / 총 ${input.studentCount}명`)
   lines.push('')
   lines.push(`[항목별] 교재비 합계 ${formatWon(input.materialsRevenue)} / 총 차감액 ${formatWon(input.totalDeduction)}`)
-  lines.push('')
-
-  if (input.unpaidCount > 0) {
-    lines.push(`[긴급] 미납 ${input.unpaidCount}명 · 미납 합계 ${formatWon(input.totalUnpaidAmount)}`)
-    input.unpaidList.forEach(({ name, unpaidAmount }) => {
-      lines.push(`  · ${name} ${formatWon(unpaidAmount)}`)
-    })
-  } else {
-    lines.push('[긴급] 미납자 없음')
-  }
 
   return lines.join('\n')
 }
